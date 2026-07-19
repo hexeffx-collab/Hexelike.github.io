@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Send Post Link</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f6f7fb; padding:40px; }
+    .card { max-width:520px; margin:0 auto; background:white; padding:20px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    label { display:block; margin-bottom:6px; font-weight:600; }
+    input[type="text"]{width:100%; padding:10px; border:1px solid #d6dbe8; border-radius:6px; box-sizing:border-box}
+    button { margin-top:12px; padding:10px 14px; border:none; background:#2563eb; color:white; border-radius:6px; cursor:pointer; }
+    .note { margin-top:12px; color:#555; font-size:0.9rem; }
+    .status { margin-top:10px; padding:8px; border-radius:6px; display:none; }
+    .status.ok { background:#ecfdf5; color:#065f46; display:block; }
+    .status.err { background:#fff1f2; color:#7f1d1d; display:block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Send Instagram post link</h2>
+    <p class="note">Enter one Instagram post URL and press Send. The server will forward the link to the configured endpoint.</p>
+
+    <label for="postUrl">Instagram post URL</label>
+    <input id="postUrl" type="text" placeholder="https://www.instagram.com/p/XYZ..." />
+
+    <button id="sendBtn">Send Link</button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+<script>
+  function normalizeUrl(url) {
+    // convert common forms -> /p/
+    try {
+      url = url.trim();
+      if (!url) return "";
+      // fix trailing spaces or query params they might not want
+      // convert /reel/ or /reels/ or /tv/ -> /p/
+      return url.replace('/reel/','/p/').replace('/reels/','/p/').replace('/tv/','/p/');
+    } catch(e) { return url; }
+  }
+
+  document.getElementById('sendBtn').addEventListener('click', async () => {
+    const input = document.getElementById('postUrl');
+    const status = document.getElementById('status');
+    status.style.display = 'none';
+    status.className = 'status';
+
+    let url = normalizeUrl(input.value);
+    if (!url || !url.startsWith('https://www.instagram.com/')) {
+      status.textContent = 'Please enter a valid Instagram URL (must start with https://www.instagram.com/).';
+      status.classList.add('err');
+      status.style.display = 'block';
+      return;
+    }
+
+    // disable while sending
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+      const res = await fetch('/api/send-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postUrl: url })
+      });
+
+      const payload = await res.json();
+      if (res.ok) {
+        status.textContent = payload.message || 'Link forwarded successfully.';
+        status.classList.add('ok');
+      } else {
+        status.textContent = payload.error || 'Failed to forward link.';
+        status.classList.add('err');
+      }
+    } catch (err) {
+      status.textContent = 'Network or server error: ' + err.message;
+      status.classList.add('err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send Link';
+      status.style.display = 'block';
+    }
+  });
+</script>
+</body>
+</html>
